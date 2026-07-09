@@ -16,27 +16,30 @@ export default function WellnessTracking() {
       const date = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
       
       // Save mood to wellness_records
-      await supabase.from('wellness_records').insert([{
+      const { error: moodError } = await supabase.from('wellness_records').insert([{
         user_id: user.id,
         date: date,
         mood: mood.toString(),
         timestamp: Date.now()
       }])
+      if (moodError) throw moodError;
       
       // Save stress to pain_records so it reflects in Dashboard/Progress
-      await supabase.from('pain_records').insert([{
+      const { error: stressError } = await supabase.from('pain_records').insert([{
         user_id: user.id,
         date: date,
-        painLevel: 0,
-        stressLevel: parseInt(stress),
+        pain_level: 0,
+        stress_level: parseInt(stress),
         location: '',
         type: 'Wellness Log',
         timestamp: Date.now()
       }])
+      if (stressError) throw stressError;
       
       alert('Wellness logged successfully!')
     } catch (error) {
       console.error(error)
+      alert(`Error saving log: ${error.message}`)
     } finally {
       setIsSaving(false)
     }

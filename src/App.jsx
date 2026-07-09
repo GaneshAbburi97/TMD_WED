@@ -7,6 +7,7 @@ import Layout from './components/Layout'
 import Login from './pages/Auth/Login'
 import Signup from './pages/Auth/Signup'
 import ForgotPassword from './pages/Auth/ForgotPassword'
+import AuthCallback from './pages/Auth/AuthCallback'
 import Dashboard from './pages/Dashboard'
 import PainMap from './pages/PainMap'
 import Exercises from './pages/Exercises'
@@ -41,6 +42,7 @@ function App() {
             <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
 
           {/* Protected Routes */}
           <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>

@@ -33,6 +33,9 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [painAvg, setPainAvg] = useState(0)
   const [exercisesDone, setExercisesDone] = useState(0)
+  const [sleepQuality, setSleepQuality] = useState('N/A')
+  const [sleepHours, setSleepHours] = useState(0)
+  const [stressLevel, setStressLevel] = useState('N/A')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -60,6 +63,34 @@ export default function Dashboard() {
         .gte('created_at', today)
       
       if (exData) setExercisesDone(exData.length)
+
+      const { data: sleepData } = await supabase
+        .from('sleep_records')
+        .select('sleep_quality, sleep_hours')
+        .eq('user_id', user.id)
+        .order('timestamp', { ascending: false })
+        .limit(7)
+        
+      if (sleepData && sleepData.length > 0) {
+        setSleepQuality(sleepData[0].sleep_quality)
+        const avg = sleepData.reduce((acc, curr) => acc + curr.sleep_hours, 0) / sleepData.length
+        setSleepHours(avg.toFixed(1))
+      }
+
+      const { data: stressData } = await supabase
+        .from('pain_records')
+        .select('stress_level')
+        .eq('user_id', user.id)
+        .not('stress_level', 'is', null)
+        .order('timestamp', { ascending: false })
+        .limit(1)
+
+      if (stressData && stressData.length > 0 && stressData[0].stress_level != null) {
+        const stress = stressData[0].stress_level
+        if (stress <= 3) setStressLevel('Low')
+        else if (stress <= 6) setStressLevel('Mild')
+        else setStressLevel('High')
+      }
 
       setLoading(false)
     }
@@ -104,15 +135,15 @@ export default function Dashboard() {
       <MetricCard 
         index={3}
         title="Sleep Quality" 
-        value="Good" 
-        subtitle="Avg 7.2 hours" 
+        value={sleepQuality} 
+        subtitle={sleepHours > 0 ? `Avg ${sleepHours} hours` : 'No recent logs'} 
         icon={HeartPulse} 
         colorClass="var(--accent-teal)" 
       />
       <MetricCard 
         index={4}
         title="Stress Level" 
-        value="Mild" 
+        value={stressLevel} 
         subtitle="Based on morning check-in" 
         icon={BrainCircuit} 
         colorClass="var(--accent-orange)" 

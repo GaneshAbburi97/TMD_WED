@@ -259,15 +259,21 @@ function ExerciseCard({ exercise, user }) {
     setIsCompleted(true)
     
     if (user) {
-      const date = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
-      await supabase.from('exercise_records').insert([{
-        user_id: user.id,
-        exerciseName: exercise.name,
-        durationSec: exercise.durationSec,
-        category: exercise.category,
-        date: date,
-        timestamp: Date.now()
-      }])
+      try {
+        const date = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
+        const { error } = await supabase.from('exercise_records').insert([{
+          user_id: user.id,
+          exercise_name: exercise.name,
+          duration_sec: exercise.durationSec,
+          category: exercise.category,
+          date: date,
+          timestamp: Date.now()
+        }])
+        if (error) throw error;
+      } catch (err) {
+        console.error(err)
+        alert(`Error saving exercise: ${err.message}`)
+      }
     }
   }
 

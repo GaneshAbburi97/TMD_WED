@@ -14,16 +14,18 @@ export default function SleepTracking() {
     setIsSaving(true)
     try {
       const date = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
-      await supabase.from('sleep_records').insert([{
+      const { error } = await supabase.from('sleep_records').insert([{
         user_id: user.id,
         date: date,
         sleep_hours: parseFloat(duration),
         sleep_quality: quality,
         timestamp: Date.now()
       }])
+      if (error) throw error;
       alert('Sleep logged successfully!')
     } catch (error) {
       console.error(error)
+      alert(`Error saving log: ${error.message}`)
     } finally {
       setIsSaving(false)
     }

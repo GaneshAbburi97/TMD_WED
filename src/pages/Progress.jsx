@@ -11,6 +11,7 @@ export default function Progress() {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('Trends')
   const [chartData, setChartData] = useState([])
+  const [weeklyStats, setWeeklyStats] = useState({ pain: 0, exercises: 0, stress: 0 })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -53,6 +54,24 @@ export default function Progress() {
         })
 
         setChartData(finalData)
+
+        const daysWithPain = finalData.filter(d => d.Pain > 0).length
+        const avgPain = daysWithPain > 0 ? finalData.reduce((acc, curr) => acc + curr.Pain, 0) / daysWithPain : 0
+        
+        const daysWithStress = finalData.filter(d => d.Stress > 0).length
+        const avgStress = daysWithStress > 0 ? finalData.reduce((acc, curr) => acc + curr.Stress, 0) / daysWithStress : 0
+
+        const { data: exData } = await supabase
+          .from('exercise_records')
+          .select('id')
+          .eq('user_id', user.id)
+          .gte('created_at', sevenDaysAgo.toISOString())
+
+        setWeeklyStats({
+          pain: avgPain.toFixed(1),
+          stress: avgStress.toFixed(1),
+          exercises: exData ? exData.length : 0
+        })
       }
       setLoading(false)
     }
@@ -165,15 +184,15 @@ export default function Progress() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
             <div style={{ padding: '1.5rem', backgroundColor: 'var(--surface-border)', borderRadius: '8px', textAlign: 'center' }}>
               <h4 className="text-secondary mb-2">Average Pain</h4>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--accent-red)' }}>4.2</div>
+              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--accent-red)' }}>{weeklyStats.pain}</div>
             </div>
             <div style={{ padding: '1.5rem', backgroundColor: 'var(--surface-border)', borderRadius: '8px', textAlign: 'center' }}>
               <h4 className="text-secondary mb-2">Exercises Completed</h4>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--brand-primary)' }}>12</div>
+              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--brand-primary)' }}>{weeklyStats.exercises}</div>
             </div>
             <div style={{ padding: '1.5rem', backgroundColor: 'var(--surface-border)', borderRadius: '8px', textAlign: 'center' }}>
               <h4 className="text-secondary mb-2">Average Stress</h4>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--accent-orange)' }}>5.5</div>
+              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--accent-orange)' }}>{weeklyStats.stress}</div>
             </div>
           </div>
         </div>

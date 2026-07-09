@@ -1,13 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Send, ShieldAlert, CheckCircle, Info, AlertTriangle, Lightbulb } from 'lucide-react'
-import Groq from 'groq-sdk'
-
-// Initialize Groq client
-const groq = new Groq({
-  apiKey: import.meta.env.VITE_GROQ_API_KEY || "dummy",
-  dangerouslyAllowBrowser: true 
-})
+import { supabase } from '../lib/supabase'
 
 export default function AiChat() {
   const navigate = useNavigate()
@@ -114,15 +108,14 @@ export default function AiChat() {
     try {
       const history = newMessages.map(m => ({ role: m.role, content: m.content }))
       
-      const chatCompletion = await groq.chat.completions.create({
-        messages: [
-          { role: 'system', content: 'You are a professional medical AI assistant specializing in TMJ disorder. You MUST format your responses using these exact block tags at the beginning of relevant lines when appropriate: [INFO] for general medical facts, [SUCCESS] for positive updates/encouragement, [WARNING] for moderate symptoms or things to avoid, [ALERT] for severe symptoms requiring a doctor, [REC] for specific exercise/lifestyle recommendations. Keep responses concise.' },
-          ...history
-        ],
-        model: 'llama-3.1-8b-instant',
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: { messages: history }
       })
 
-      const botReply = chatCompletion.choices[0]?.message?.content || "Sorry, I couldn't process that."
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+
+      const botReply = data?.choices?.[0]?.message?.content || "Sorry, I couldn't process that."
       setMessages([...newMessages, { role: 'assistant', content: botReply, timestamp: Date.now() }])
       
     } catch (error) {

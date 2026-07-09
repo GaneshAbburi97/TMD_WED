@@ -74,6 +74,11 @@ export default function PainMap() {
 
   const handleSave = async () => {
     if (!user) return
+    if (selectedRegions.size === 0) {
+      setMessage({ type: 'error', text: 'Please select at least one region.' })
+      return
+    }
+    
     setLoading(true)
     setMessage(null)
 
