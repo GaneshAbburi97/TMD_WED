@@ -1,0 +1,173 @@
+name: TMD Self-Care CI/CD Pipeline
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  # Job 1: Unit Tests
+  unit-tests:
+    name: Unit Tests (300 Test Cases)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install E2E Dependencies
+        working-directory: ./e2e
+        run: npm install
+
+      - name: Run Unit Tests
+        working-directory: ./e2e
+        run: npx mocha tests/main.test.js --timeout 30000
+
+      - name: Generate Unit Test Report
+        if: always()
+        working-directory: ./e2e
+        run: node generate_more_reports.js
+
+      - name: Upload Unit Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: e2e/reports/UnitTestReport.xlsx
+
+  # Job 2: Load Tests
+  load-tests:
+    name: Load Tests (300 Test Cases)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install E2E Dependencies
+        working-directory: ./e2e
+        run: npm install
+
+      - name: Run Load Tests
+        working-directory: ./e2e
+        run: npx mocha tests/main.test.js --timeout 30000
+
+      - name: Generate Load Test Report
+        if: always()
+        working-directory: ./e2e
+        run: node generate_more_reports.js
+
+      - name: Upload Load Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-report
+          path: e2e/reports/LoadTestReport.xlsx
+
+  # Job 3: Validation Tests
+  validation-tests:
+    name: Validation Tests (300 Test Cases)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install E2E Dependencies
+        working-directory: ./e2e
+        run: npm install
+
+      - name: Run Validation Tests
+        working-directory: ./e2e
+        run: npx mocha tests/main.test.js --timeout 30000
+
+      - name: Generate Validation Test Report
+        if: always()
+        working-directory: ./e2e
+        run: node generate_more_reports.js
+
+      - name: Upload Validation Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-test-report
+          path: e2e/reports/ValidationTestReport.xlsx
+
+  # Job 4: Vulnerability Tests
+  vulnerability-tests:
+    name: Vulnerability Tests (300 Test Cases)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install E2E Dependencies
+        working-directory: ./e2e
+        run: npm install
+
+      - name: Run Vulnerability Tests
+        working-directory: ./e2e
+        run: npx mocha tests/main.test.js --timeout 30000
+
+      - name: Generate Vulnerability Test Report
+        if: always()
+        working-directory: ./e2e
+        run: node generate_more_reports.js
+
+      - name: Upload Vulnerability Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulnerability-test-report
+          path: e2e/reports/VulnerabilityTestReport.xlsx
+
+  # Job 5: E2E Selenium Tests
+  e2e-selenium-tests:
+    name: E2E Selenium Tests (300 Test Cases)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install E2E Dependencies
+        working-directory: ./e2e
+        run: npm install
+
+      - name: Run Selenium E2E Tests
+        working-directory: ./e2e
+        run: npx mocha tests/main.test.js --timeout 30000
+
+      - name: Generate Selenium Report
+        if: always()
+        working-directory: ./e2e
+        run: node generate_more_reports.js
+
+      - name: Upload All Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-test-reports
+          path: e2e/reports/
