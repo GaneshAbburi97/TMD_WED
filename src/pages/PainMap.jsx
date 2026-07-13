@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { api } from '../lib/api'
 import { Lightbulb, Save, Check } from 'lucide-react'
 
 const SvgRegion = ({ id, pathD, selectedRegions, hoveredRegion, painLevel, toggleRegion, setHoveredRegion }) => {
@@ -47,19 +47,19 @@ export default function PainMap() {
   useEffect(() => {
     async function fetchLastRecord() {
       if (!user) return
-      const { data, error } = await supabase
-        .from('pain_records')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('timestamp', { ascending: false })
-        .limit(1)
+      try {
+        const data = await api.get('/pain') || []
+        const sortedData = [...data].sort((a, b) => new Date(b.timestamp || b.created_at) - new Date(a.timestamp || a.created_at))
 
-      if (!error && data && data.length > 0) {
-        const lastRecord = data[0]
-        if (lastRecord.location) {
-          const locs = lastRecord.location.split(',').map(l => l.trim())
-          setSuggestedRegion(locs[0])
+        if (sortedData && sortedData.length > 0) {
+          const lastRecord = sortedData[0]
+          if (lastRecord.location) {
+            const locs = lastRecord.location.split(',').map(l => l.trim())
+            setSuggestedRegion(locs[0])
+          }
         }
+      } catch (err) {
+        console.error('Failed to fetch last record', err)
       }
     }
     fetchLastRecord()
@@ -96,9 +96,11 @@ export default function PainMap() {
     }
 
     try {
-      const { error } = await supabase.from('pain_records').insert([newRecord])
-      if (error) throw error
-      setMessage({ type: 'success', text: 'Location and levels saved successfully!' })
+      const result = await api.post('/pain', newRecord)
+      if (result && result.error) throw new Error(result.error)
+      const successText = `Pain level ${painLevel}/10 saved successfully.`
+      setMessage({ type: 'success', text: successText })
+      alert(successText)
     } catch (err) {
       setMessage({ type: 'error', text: err.message })
     } finally {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { api } from '../lib/api'
 import { Dumbbell, AlertTriangle, Sparkles, PlayCircle, List, Repeat } from 'lucide-react'
 
 // Dummy Data translated from Android allExercises
@@ -137,16 +137,16 @@ export default function Exercises() {
   useEffect(() => {
     async function fetchLastRecord() {
       if (!user) return
-      const { data } = await supabase
-        .from('pain_records')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('timestamp', { ascending: false })
-        .limit(1)
+      try {
+        const data = await api.get('/pain') || []
+        const sortedData = [...data].sort((a, b) => new Date(b.timestamp || b.created_at) - new Date(a.timestamp || a.created_at))
 
-      if (data && data.length > 0) {
-        setPainLevel(data[0].pain_level ?? 5)
-        setStressLevel(data[0].stress_level ?? 5)
+        if (sortedData && sortedData.length > 0) {
+          setPainLevel(sortedData[0].pain_level ?? 5)
+          setStressLevel(sortedData[0].stress_level ?? 5)
+        }
+      } catch (err) {
+        console.error('Failed to fetch pain records', err)
       }
     }
     fetchLastRecord()
@@ -261,15 +261,14 @@ function ExerciseCard({ exercise, user }) {
     if (user) {
       try {
         const date = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
-        const { error } = await supabase.from('exercise_records').insert([{
-          user_id: user.id,
+        const result = await api.post('/exercise', {
           exercise_name: exercise.name,
           duration_sec: exercise.durationSec,
           category: exercise.category,
           date: date,
           timestamp: Date.now()
-        }])
-        if (error) throw error;
+        })
+        if (result && result.error) throw new Error(result.error);
       } catch (err) {
         console.error(err)
         alert(`Error saving exercise: ${err.message}`)

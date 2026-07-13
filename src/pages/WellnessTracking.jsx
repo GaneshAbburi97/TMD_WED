@@ -1,13 +1,24 @@
 import { useState } from 'react'
 import { BrainCircuit, Smile, AlertTriangle, CheckCircle } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { api } from '../lib/api'
 
 export default function WellnessTracking() {
   const { user } = useAuth()
   const [stress, setStress] = useState(5)
   const [mood, setMood] = useState(3)
+  const [triggers, setTriggers] = useState([])
   const [isSaving, setIsSaving] = useState(false)
+  
+  const moodEmojis = ['😫', '😞', '😐', '🙂', '😄']
+  
+  const toggleTrigger = (t) => {
+    if (triggers.includes(t)) {
+      setTriggers(triggers.filter(x => x !== t))
+    } else {
+      setTriggers([...triggers, t])
+    }
+  }
 
   const handleSave = async () => {
     if (!user) return
@@ -16,25 +27,24 @@ export default function WellnessTracking() {
       const date = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
       
       // Save mood to wellness_records
-      const { error: moodError } = await supabase.from('wellness_records').insert([{
-        user_id: user.id,
+      const moodResult = await api.post('/wellness', {
         date: date,
         mood: mood.toString(),
+        notes: triggers.join(', '),
         timestamp: Date.now()
-      }])
-      if (moodError) throw moodError;
+      })
+      if (moodResult && moodResult.error) throw new Error(moodResult.error);
       
       // Save stress to pain_records so it reflects in Dashboard/Progress
-      const { error: stressError } = await supabase.from('pain_records').insert([{
-        user_id: user.id,
+      const stressResult = await api.post('/pain', {
         date: date,
         pain_level: 0,
         stress_level: parseInt(stress),
         location: '',
         type: 'Wellness Log',
         timestamp: Date.now()
-      }])
-      if (stressError) throw stressError;
+      })
+      if (stressResult && stressResult.error) throw new Error(stressResult.error);
       
       alert('Wellness logged successfully!')
     } catch (error) {
@@ -94,12 +104,11 @@ export default function WellnessTracking() {
                       width: '48px', height: '48px', borderRadius: '50%',
                       backgroundColor: mood === val ? 'var(--brand-light)' : 'var(--bg-secondary)',
                       border: `1px solid ${mood === val ? 'var(--brand-primary)' : 'var(--surface-border)'}`,
-                      color: mood === val ? 'var(--brand-primary)' : 'var(--text-secondary)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
                       transition: 'all 0.2s'
                     }}
                   >
-                    <Smile size={24} style={{ opacity: val * 0.2 + 0.2 }} />
+                    <span style={{ fontSize: '24px' }}>{moodEmojis[val - 1]}</span>
                   </button>
                 ))}
               </div>
@@ -109,15 +118,23 @@ export default function WellnessTracking() {
 
           <h4 style={{ marginBottom: '1rem' }}>Tension Triggers (Optional)</h4>
           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
-            {['Work Stress', 'Poor Sleep', 'Hard Foods', 'Clenching Jaw', 'Anxiety'].map(trigger => (
-              <div key={trigger} style={{ 
-                padding: '0.5rem 1rem', borderRadius: '24px', 
-                border: '1px solid var(--surface-border)', color: 'var(--text-secondary)',
-                cursor: 'pointer', fontSize: '0.875rem'
-              }}>
-                {trigger}
-              </div>
-            ))}
+            {['Work Stress', 'Poor Sleep', 'Hard Foods', 'Clenching Jaw', 'Anxiety'].map(trigger => {
+              const isSelected = triggers.includes(trigger)
+              return (
+                <button 
+                  key={trigger} 
+                  onClick={() => toggleTrigger(trigger)}
+                  style={{ 
+                    padding: '0.5rem 1rem', borderRadius: '24px', 
+                    border: `1px solid ${isSelected ? 'var(--brand-primary)' : 'var(--surface-border)'}`, 
+                    backgroundColor: isSelected ? 'var(--brand-primary)' : 'transparent',
+                    color: isSelected ? '#fff' : 'var(--text-secondary)',
+                    cursor: 'pointer', fontSize: '0.875rem', transition: 'all 0.2s'
+                  }}>
+                  {trigger}
+                </button>
+              )
+            })}
           </div>
 
           <button className="btn btn-primary" onClick={handleSave} disabled={isSaving}>

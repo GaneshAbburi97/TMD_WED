@@ -4,11 +4,22 @@ import { useAuth } from '../../context/AuthContext'
 import { UserPlus } from 'lucide-react'
 import GoogleAuthButton from '../../components/GoogleAuthButton'
 
+const PASSWORD_SPACE_ERROR = 'Password cannot contain spaces.'
+
+const getAuthRedirectError = () => {
+  const searchParams = new URLSearchParams(window.location.search)
+  const hashParams = new URLSearchParams(window.location.hash.substring(1))
+  const errorDesc = searchParams.get('error_description') || searchParams.get('error') ||
+                    hashParams.get('error_description') || hashParams.get('error')
+
+  return errorDesc ? decodeURIComponent(errorDesc.replace(/\+/g, ' ')) : null
+}
+
 export default function Signup() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState(null)
+  const [error, setError] = useState(() => getAuthRedirectError())
   const [loading, setLoading] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
   
@@ -16,16 +27,7 @@ export default function Signup() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    // Check for URL errors from OAuth redirects in both search and hash
-    const searchParams = new URLSearchParams(window.location.search)
-    const hashParams = new URLSearchParams(window.location.hash.substring(1)) // Remove the '#'
-    
-    const errorDesc = searchParams.get('error_description') || searchParams.get('error') || 
-                      hashParams.get('error_description') || hashParams.get('error')
-                      
-    if (errorDesc) {
-      setError(decodeURIComponent(errorDesc.replace(/\+/g, ' ')))
-      // Clean up URL
+    if (getAuthRedirectError()) {
       window.history.replaceState({}, document.title, window.location.pathname)
     }
 
@@ -38,15 +40,24 @@ export default function Signup() {
     e.preventDefault()
     setError(null)
     setSuccessMsg('')
+
+    if (/\s/.test(password)) {
+      setError(PASSWORD_SPACE_ERROR)
+      return
+    }
+
+    const trimmedName = name.trim()
+    const trimmedEmail = email.trim()
+
     setLoading(true)
 
     try {
       const { data, error } = await signUp({ 
-        email, 
+        email: trimmedEmail, 
         password,
         options: {
           data: {
-            full_name: name
+            full_name: trimmedName
           }
         }
       })
@@ -63,6 +74,17 @@ export default function Signup() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handlePasswordChange = (e) => {
+    const nextPassword = e.target.value
+    if (/\s/.test(nextPassword)) {
+      setError(PASSWORD_SPACE_ERROR)
+      setPassword(nextPassword.replace(/\s/g, ''))
+      return
+    }
+    if (error === PASSWORD_SPACE_ERROR) setError(null)
+    setPassword(nextPassword)
   }
 
   return (
@@ -120,7 +142,12 @@ export default function Signup() {
               className="input-field" 
               placeholder="••••••••"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={handlePasswordChange}
+              onKeyDown={(e) => {
+                if (e.key === ' ') e.preventDefault()
+              }}
+              pattern="\S+"
+              title="Password cannot contain spaces."
               required
             />
           </div>

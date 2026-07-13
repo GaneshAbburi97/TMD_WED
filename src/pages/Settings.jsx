@@ -1,5 +1,6 @@
 import { useTheme } from '../context/ThemeContext'
-import { Moon, Sun, Bell, Lock, Globe, Database } from 'lucide-react'
+import { Moon, Sun, Bell, Lock, Globe, Database, User } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 const SettingRow = ({ icon: Icon, title, description, action }) => (
   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem', borderBottom: '1px solid var(--surface-border)' }}>
@@ -67,11 +68,11 @@ export default function Settings() {
           }
         />
         <SettingRow 
-          icon={Lock}
-          title="Privacy & Security"
-          description="Manage your password, 2FA, and data sharing preferences."
+          icon={User}
+          title="Update Profile"
+          description="Manage your account details and personal information."
           action={
-            <button className="btn btn-ghost" style={{ color: 'var(--brand-primary)' }}>Manage</button>
+            <Link to="/profile" className="btn btn-ghost" style={{ color: 'var(--brand-primary)', textDecoration: 'none' }}>Manage</Link>
           }
         />
       </div>

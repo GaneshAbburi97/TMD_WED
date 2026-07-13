@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { 
-  Home, Activity, MapPin, BarChart2, MessageSquare, Menu, X,
-  LogOut, Settings, Moon, Sun, Bell, User, BookOpen, Shield, FileText
+  Home, Activity, MapPin, BarChart2, MessageSquare, Menu,
+  LogOut, Settings, Moon, Sun, User, BookOpen, Shield, FileText
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
-import { supabase } from '../lib/supabase'
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: Home },
@@ -65,13 +64,13 @@ const NavItem = ({ item, isSidebarOpen, navigate, location }) => {
 export default function Layout() {
   const [isSidebarOpen, setSidebarOpen] = useState(true)
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false)
-  const { user } = useAuth()
-  const { theme, toggleTheme, isDark } = useTheme()
+  const { user, signOut } = useAuth()
+  const { toggleTheme, isDark } = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    await signOut()
     navigate('/login')
   }
 
@@ -81,7 +80,6 @@ export default function Layout() {
       {/* LEFT SIDEBAR */}
       <aside className="glass-panel" style={{
         width: isSidebarOpen ? '260px' : '72px',
-        borderRight: '1px solid var(--surface-border)',
         display: 'flex',
         flexDirection: 'column',
         transition: 'width 0.3s ease',
@@ -98,7 +96,7 @@ export default function Layout() {
           justifyContent: isSidebarOpen ? 'space-between' : 'center',
           borderBottom: '1px solid var(--surface-border)'
         }}>
-          {isSidebarOpen && <h1 style={{ fontSize: '1.25rem', color: 'var(--brand-primary)', margin: 0 }}>TMD Care AI</h1>}
+          {isSidebarOpen && <h1 style={{ fontSize: '1.25rem', color: 'var(--brand-primary)', margin: 0 }}>TMD Self-Care</h1>}
           <button 
             onClick={() => setSidebarOpen(!isSidebarOpen)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
@@ -119,7 +117,6 @@ export default function Layout() {
         {/* TOP HEADER */}
         <header className="glass-panel" style={{
           height: '64px',
-          borderBottom: '1px solid var(--surface-border)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -139,10 +136,6 @@ export default function Layout() {
             <button onClick={toggleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
               {isDark ? <Sun size={20} /> : <Moon size={20} />}
             </button>
-            
-            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-              <Bell size={20} />
-            </button>
 
             <div style={{ position: 'relative' }}>
               <div 
@@ -158,10 +151,10 @@ export default function Layout() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontWeight: 'bold', fontSize: '0.875rem'
                 }}>
-                  {user?.email?.charAt(0).toUpperCase() || 'U'}
+                  {(user?.name || user?.user_metadata?.name || user?.email || 'U').charAt(0).toUpperCase()}
                 </div>
                 <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)' }}>
-                  {user?.user_metadata?.name || 'User'}
+                  {user?.name || user?.user_metadata?.name || 'User'}
                 </span>
               </div>
 

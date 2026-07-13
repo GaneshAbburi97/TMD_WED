@@ -3,33 +3,55 @@ import { FileText, Download, Printer, Share2, FileDown } from 'lucide-react'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { api } from '../lib/api'
 
 export default function Reports() {
   const { user } = useAuth()
   const [isGenerating, setIsGenerating] = useState(false)
   const reportRef = useRef(null)
   const [avgPain, setAvgPain] = useState(0)
+  const [avgStress, setAvgStress] = useState(0)
   const [exerciseCount, setExerciseCount] = useState(0)
   const [avgSleep, setAvgSleep] = useState(0)
+  const [activityLog, setActivityLog] = useState([])
 
   useEffect(() => {
     async function fetchData() {
       if (!user) return
       
-      const { data: painData } = await supabase.from('pain_records').select('pain_level').eq('user_id', user.id).gt('pain_level', 0)
-      if (painData && painData.length > 0) {
-        const sum = painData.reduce((acc, curr) => acc + curr.pain_level, 0)
-        setAvgPain((sum / painData.length).toFixed(1))
-      }
+      try {
+        const painData = await api.get('/pain') || []
+        const validPain = painData.filter(p => p.pain_level > 0 || p.stress_level > 0)
+        if (validPain.length > 0) {
+          const sumPain = validPain.reduce((acc, curr) => acc + (curr.pain_level || 0), 0)
+          const sumStress = validPain.reduce((acc, curr) => acc + (curr.stress_level || 0), 0)
+          setAvgPain((sumPain / validPain.length).toFixed(1))
+          setAvgStress((sumStress / validPain.length).toFixed(1))
+        }
 
-      const { count } = await supabase.from('exercise_records').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
-      if (count) setExerciseCount(count)
+        const exData = await api.get('/exercise') || []
+        setExerciseCount(exData.length)
 
-      const { data: sleepData } = await supabase.from('sleep_records').select('sleep_hours').eq('user_id', user.id)
-      if (sleepData && sleepData.length > 0) {
-        const sum = sleepData.reduce((acc, curr) => acc + curr.sleep_hours, 0)
-        setAvgSleep((sum / sleepData.length).toFixed(1))
+        const sleepData = await api.get('/sleep') || []
+        if (sleepData.length > 0) {
+          const sum = sleepData.reduce((acc, curr) => acc + parseFloat(curr.sleep_hours || 0), 0)
+          setAvgSleep((sum / sleepData.length).toFixed(1))
+        }
+
+        const wellnessData = await api.get('/wellness') || []
+        
+        // Build Recent Activity Log
+        let allActivities = []
+        painData.forEach(p => allActivities.push({ type: 'Pain/Stress Log', desc: `Logged Pain: ${p.pain_level}/10, Stress: ${p.stress_level}/10`, ts: p.timestamp }))
+        exData.forEach(e => allActivities.push({ type: 'Exercise', desc: `Completed ${e.exercise_name} (${e.duration_sec}s)`, ts: e.timestamp }))
+        sleepData.forEach(s => allActivities.push({ type: 'Sleep Log', desc: `Logged ${s.sleep_hours} hrs of sleep`, ts: s.timestamp }))
+        wellnessData.forEach(w => allActivities.push({ type: 'Wellness Log', desc: `Mood: ${w.mood}`, ts: w.timestamp }))
+        
+        allActivities.sort((a, b) => b.ts - a.ts)
+        setActivityLog(allActivities.slice(0, 5))
+
+      } catch (err) {
+        console.error("Failed to load report data", err)
       }
     }
     fetchData()
@@ -87,7 +109,7 @@ export default function Reports() {
           {/* Report Header */}
           <div style={{ borderBottom: '2px solid #E2E8F0', paddingBottom: '1.5rem', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h2 style={{ color: '#2563EB', margin: 0 }}>TMD Care AI</h2>
+              <h2 style={{ color: '#2563EB', margin: 0 }}>TMD Self-Care</h2>
               <p style={{ color: '#64748B', fontSize: '0.875rem' }}>Official Patient Health Report</p>
             </div>
             <div style={{ textAlign: 'right' }}>
@@ -103,7 +125,7 @@ export default function Reports() {
             <div style={{ backgroundColor: '#F8FAFC', padding: '1rem', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
               <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', letterSpacing: '1px' }}>Avg Pain Level</div>
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1E293B' }}>{avgPain} / 10</div>
-              <div style={{ fontSize: '0.875rem', color: '#10B981', marginTop: '0.25rem' }}>Based on recent logs</div>
+              <div style={{ fontSize: '0.875rem', color: '#10B981', marginTop: '0.25rem' }}>Stress: {avgStress} / 10</div>
             </div>
             <div style={{ backgroundColor: '#F8FAFC', padding: '1rem', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
               <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', letterSpacing: '1px' }}>Exercises Completed</div>
@@ -117,12 +139,16 @@ export default function Reports() {
             </div>
           </div>
 
-          {/* Primary Pain Locations */}
-          <h3 style={{ fontSize: '1.125rem', marginBottom: '1rem', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.5rem' }}>Primary Symptom Locations</h3>
+          {/* Recent Patient Activity */}
+          <h3 style={{ fontSize: '1.125rem', marginBottom: '1rem', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.5rem' }}>Recent Patient Activity</h3>
           <ul style={{ paddingLeft: '1.5rem', marginBottom: '2rem', color: '#334155' }}>
-            <li style={{ marginBottom: '0.5rem' }}><strong>Right Masseter (Jaw):</strong> Frequently reported as stiff upon waking. Avg intensity: 5/10.</li>
-            <li style={{ marginBottom: '0.5rem' }}><strong>Left Temporalis (Temple):</strong> Associated with stress and late afternoon headaches. Avg intensity: 4/10.</li>
-            <li style={{ marginBottom: '0.5rem' }}><strong>Neck / Shoulders:</strong> Mild tightness correlated with poor posture. Avg intensity: 3/10.</li>
+            {activityLog.length > 0 ? activityLog.map((act, i) => (
+              <li key={i} style={{ marginBottom: '0.5rem' }}>
+                <strong>{new Date(act.ts).toLocaleDateString()}:</strong> {act.type} - {act.desc}
+              </li>
+            )) : (
+              <li style={{ marginBottom: '0.5rem' }}>No recent activity found.</li>
+            )}
           </ul>
 
           {/* AI Clinical Notes */}
@@ -137,7 +163,7 @@ export default function Reports() {
 
           {/* Footer */}
           <div style={{ marginTop: '4rem', paddingTop: '1rem', borderTop: '1px solid #E2E8F0', textAlign: 'center', color: '#94A3B8', fontSize: '0.75rem' }}>
-            Generated by TMD Care AI Platform • Confidential Health Information
+            Generated by TMD Self-Care Platform • Confidential Health Information
           </div>
           
         </div>

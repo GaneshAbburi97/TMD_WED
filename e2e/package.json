@@ -1,0 +1,21 @@
+{
+  "name": "e2e",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "mocha tests/**/*.test.js --timeout 30000"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chai": "^6.2.2",
+    "chromedriver": "^150.0.3",
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
+    "mocha": "^11.7.6",
+    "selenium-webdriver": "^4.45.0"
+  }
+}

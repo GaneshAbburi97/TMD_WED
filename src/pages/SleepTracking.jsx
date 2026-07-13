@@ -1,27 +1,44 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Moon, Clock, Heart, PlusCircle } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { api } from '../lib/api'
 
 export default function SleepTracking() {
   const { user } = useAuth()
   const [duration, setDuration] = useState('7.5')
   const [quality, setQuality] = useState('Good')
+  const [jawClenching, setJawClenching] = useState(false)
+  const [morningStiffness, setMorningStiffness] = useState('None')
+  const [wakeupFeeling, setWakeupFeeling] = useState('Refreshed')
   const [isSaving, setIsSaving] = useState(false)
+
+  const optionButtonStyle = (selected) => ({
+    padding: '0.75rem',
+    borderRadius: '8px',
+    border: `1px solid ${selected ? 'var(--brand-primary)' : 'var(--surface-border)'}`,
+    backgroundColor: selected ? 'var(--brand-light)' : 'transparent',
+    color: selected ? 'var(--brand-primary)' : 'var(--text-secondary)',
+    fontWeight: 500,
+    cursor: 'pointer',
+    transition: 'all 0.2s'
+  })
   
   const handleSave = async () => {
     if (!user) return
     setIsSaving(true)
     try {
       const date = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
-      const { error } = await supabase.from('sleep_records').insert([{
-        user_id: user.id,
+      const result = await api.post('/sleep', {
         date: date,
         sleep_hours: parseFloat(duration),
         sleep_quality: quality,
+        jaw_clenching: jawClenching,
+        morning_stiffness: morningStiffness,
+        wakeup_feeling: wakeupFeeling,
+        notes: '',
         timestamp: Date.now()
-      }])
-      if (error) throw error;
+      })
+      if (result && result.error) throw new Error(result.error);
       alert('Sleep logged successfully!')
     } catch (error) {
       console.error(error)
@@ -66,24 +83,64 @@ export default function SleepTracking() {
 
           <div style={{ marginBottom: '2rem' }}>
             <label style={{ display: 'block', marginBottom: '1rem', fontWeight: 500 }}>Sleep Quality</label>
-            <div style={{ display: 'flex', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1rem' }}>
               {['Poor', 'Fair', 'Good', 'Excellent'].map(q => (
                 <button
                   key={q}
                   onClick={() => setQuality(q)}
-                  style={{
-                    flex: 1,
-                    padding: '0.75rem',
-                    borderRadius: '8px',
-                    border: `1px solid ${quality === q ? 'var(--brand-primary)' : 'var(--surface-border)'}`,
-                    backgroundColor: quality === q ? 'var(--brand-light)' : 'transparent',
-                    color: quality === q ? 'var(--brand-primary)' : 'var(--text-secondary)',
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s'
-                  }}
+                  style={optionButtonStyle(quality === q)}
                 >
                   {q}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            padding: '0.875rem 1rem',
+            marginBottom: '1.5rem',
+            border: '1px solid var(--surface-border)',
+            borderRadius: '8px',
+            color: 'var(--text-primary)',
+            cursor: 'pointer'
+          }}>
+            <input
+              type="checkbox"
+              checked={jawClenching}
+              onChange={(e) => setJawClenching(e.target.checked)}
+              style={{ width: '18px', height: '18px', accentColor: 'var(--brand-primary)' }}
+            />
+            <span style={{ fontWeight: 500 }}>Jaw clenching or teeth grinding last night</span>
+          </label>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'block', marginBottom: '1rem', fontWeight: 500 }}>Morning Stiffness</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1rem' }}>
+              {['None', 'Mild', 'Moderate', 'Severe'].map(level => (
+                <button
+                  key={level}
+                  onClick={() => setMorningStiffness(level)}
+                  style={optionButtonStyle(morningStiffness === level)}
+                >
+                  {level}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '2rem' }}>
+            <label style={{ display: 'block', marginBottom: '1rem', fontWeight: 500 }}>Wake-up Feeling</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1rem' }}>
+              {['Refreshed', 'Tired', 'Jaw Sore'].map(feeling => (
+                <button
+                  key={feeling}
+                  onClick={() => setWakeupFeeling(feeling)}
+                  style={optionButtonStyle(wakeupFeeling === feeling)}
+                >
+                  {feeling}
                 </button>
               ))}
             </div>

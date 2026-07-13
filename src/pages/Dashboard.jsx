@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { api } from '../lib/api'
 import { useNavigate } from 'react-router-dom'
 import { 
   Activity, MapPin, HeartPulse, BrainCircuit, Play, ArrowRight,
@@ -43,53 +43,41 @@ export default function Dashboard() {
       if (!user) return
       setLoading(true)
 
-      const { data: painData } = await supabase
-        .from('pain_records')
-        .select('pain_level')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(7)
-      
-      if (painData && painData.length > 0) {
-        const avg = painData.reduce((acc, curr) => acc + curr.pain_level, 0) / painData.length
-        setPainAvg(avg.toFixed(1))
-      }
-
-      const today = new Date().toISOString().split('T')[0]
-      const { data: exData } = await supabase
-        .from('exercise_records')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('created_at', today)
-      
-      if (exData) setExercisesDone(exData.length)
-
-      const { data: sleepData } = await supabase
-        .from('sleep_records')
-        .select('sleep_quality, sleep_hours')
-        .eq('user_id', user.id)
-        .order('timestamp', { ascending: false })
-        .limit(7)
+      try {
+        const allPainData = await api.get('/pain') || []
+        // Sort descending by timestamp or created_at
+        const painData = [...allPainData].sort((a, b) => new Date(b.created_at || b.timestamp) - new Date(a.created_at || a.timestamp)).slice(0, 7)
         
-      if (sleepData && sleepData.length > 0) {
-        setSleepQuality(sleepData[0].sleep_quality)
-        const avg = sleepData.reduce((acc, curr) => acc + curr.sleep_hours, 0) / sleepData.length
-        setSleepHours(avg.toFixed(1))
-      }
+        if (painData && painData.length > 0) {
+          const avg = painData.reduce((acc, curr) => acc + curr.pain_level, 0) / painData.length
+          setPainAvg(avg.toFixed(1))
+        }
 
-      const { data: stressData } = await supabase
-        .from('pain_records')
-        .select('stress_level')
-        .eq('user_id', user.id)
-        .not('stress_level', 'is', null)
-        .order('timestamp', { ascending: false })
-        .limit(1)
+        const today = new Date().toISOString().split('T')[0]
+        const allExData = await api.get('/exercise') || []
+        const exData = allExData.filter(ex => (ex.created_at || ex.date) >= today)
+        
+        if (exData) setExercisesDone(exData.length)
 
-      if (stressData && stressData.length > 0 && stressData[0].stress_level != null) {
-        const stress = stressData[0].stress_level
-        if (stress <= 3) setStressLevel('Low')
-        else if (stress <= 6) setStressLevel('Mild')
-        else setStressLevel('High')
+        const allSleepData = await api.get('/sleep') || []
+        const sleepData = [...allSleepData].sort((a, b) => new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date)).slice(0, 7)
+          
+        if (sleepData && sleepData.length > 0) {
+          setSleepQuality(sleepData[0].sleep_quality)
+          const avg = sleepData.reduce((acc, curr) => acc + curr.sleep_hours, 0) / sleepData.length
+          setSleepHours(avg.toFixed(1))
+        }
+
+        const stressData = [...allPainData].filter(p => p.stress_level != null).sort((a, b) => new Date(b.timestamp || b.created_at) - new Date(a.timestamp || a.created_at)).slice(0, 1)
+
+        if (stressData && stressData.length > 0 && stressData[0].stress_level != null) {
+          const stress = stressData[0].stress_level
+          if (stress <= 3) setStressLevel('Low')
+          else if (stress <= 6) setStressLevel('Mild')
+          else setStressLevel('High')
+        }
+      } catch (err) {
+        console.error('Failed to load dashboard data', err)
       }
 
       setLoading(false)

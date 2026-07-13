@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { api } from '../lib/api'
+import { useAuth } from '../context/AuthContext'
 import {
   getGoogleClientId,
   loadGoogleIdentityScript,
@@ -18,6 +19,7 @@ export default function GoogleAuthButton({
 }) {
   const buttonRef = useRef(null)
   const [state, setState] = useState('loading')
+  const { setUser } = useAuth()
 
   useEffect(() => {
     let cancelled = false
@@ -44,14 +46,15 @@ export default function GoogleAuthButton({
                 throw new Error('Google did not return an ID token. Please try again.')
               }
 
-              const { error } = await supabase.auth.signInWithIdToken({
-                provider: 'google',
-                token: response.credential,
+              const result = await api.post('/auth/google', {
+                idToken: response.credential,
               })
 
-              if (error) {
-                throw error
+              if (!result || !result.token) {
+                throw new Error('Failed to authenticate with Google')
               }
+              
+              setUser(result.user, result.token)
 
               onSuccess?.()
             } catch (err) {

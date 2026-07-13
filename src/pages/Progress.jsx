@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { api } from '../lib/api'
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar
@@ -12,66 +12,142 @@ export default function Progress() {
   const [activeTab, setActiveTab] = useState('Trends')
   const [chartData, setChartData] = useState([])
   const [weeklyStats, setWeeklyStats] = useState({ pain: 0, exercises: 0, stress: 0 })
+  const [recentActivity, setRecentActivity] = useState([])
+  const [monthlyData, setMonthlyData] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function loadData() {
       if (!user) return
       
-      // Fetch last 7 days of pain records
-      const today = new Date()
-      const sevenDaysAgo = new Date(today)
-      sevenDaysAgo.setDate(today.getDate() - 7)
-
-      const { data } = await supabase
-        .from('pain_records')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('created_at', sevenDaysAgo.toISOString())
-        .order('created_at', { ascending: true })
-
-      if (data) {
-        // Group by day for simple demo
-        const grouped = {}
-        data.forEach(record => {
-          const day = new Date(record.created_at).toLocaleDateString('en-US', { weekday: 'short' })
-          if (!grouped[day]) grouped[day] = { name: day, Pain: 0, count: 0, Stress: record.stress_level || 0 }
-          grouped[day].Pain += record.pain_level
-          grouped[day].count += 1
-        })
-
-        const formattedData = Object.values(grouped).map(g => ({
-          name: g.name,
-          Pain: Math.round(g.Pain / g.count),
-          Stress: g.Stress
-        }))
-
-        // Fill empty days for visual completion if data is sparse
-        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-        const finalData = days.map(d => {
-          const existing = formattedData.find(f => f.name === d)
-          return existing || { name: d, Pain: 0, Stress: 0 }
-        })
-
-        setChartData(finalData)
-
-        const daysWithPain = finalData.filter(d => d.Pain > 0).length
-        const avgPain = daysWithPain > 0 ? finalData.reduce((acc, curr) => acc + curr.Pain, 0) / daysWithPain : 0
+      try {
+        const allPainData = await api.get('/pain') || []
+        const allExerciseData = await api.get('/exercise') || []
         
-        const daysWithStress = finalData.filter(d => d.Stress > 0).length
-        const avgStress = daysWithStress > 0 ? finalData.reduce((acc, curr) => acc + curr.Stress, 0) / daysWithStress : 0
+        // Sort descending
+        allPainData.sort((a, b) => new Date(b.created_at || b.timestamp) - new Date(a.created_at || a.timestamp))
+        allExerciseData.sort((a, b) => new Date(b.created_at || b.timestamp) - new Date(a.created_at || a.timestamp))
 
-        const { data: exData } = await supabase
-          .from('exercise_records')
-          .select('id')
-          .eq('user_id', user.id)
-          .gte('created_at', sevenDaysAgo.toISOString())
+        // Fetch last 7 days of pain records
+        const today = new Date()
+        const sevenDaysAgo = new Date(today)
+        sevenDaysAgo.setDate(today.getDate() - 7)
 
-        setWeeklyStats({
-          pain: avgPain.toFixed(1),
-          stress: avgStress.toFixed(1),
-          exercises: exData ? exData.length : 0
-        })
+        const data = allPainData.filter(p => new Date(p.created_at || p.timestamp) >= sevenDaysAgo)
+        const exData = allExerciseData.filter(e => new Date(e.created_at || e.timestamp) >= sevenDaysAgo)
+
+        if (data) {
+          // Group by day for simple demo
+          const grouped = {}
+          data.forEach(record => {
+            const day = new Date(record.created_at || record.timestamp).toLocaleDateString('en-US', { weekday: 'short' })
+            if (!grouped[day]) grouped[day] = { name: day, Pain: 0, count: 0, Stress: record.stress_level || 0 }
+            grouped[day].Pain += record.pain_level
+            grouped[day].count += 1
+          })
+
+          const formattedData = Object.values(grouped).map(g => ({
+            name: g.name,
+            Pain: Math.round(g.Pain / g.count),
+            Stress: g.Stress
+          }))
+
+          // Fill empty days for visual completion and ensure chronological order
+          const days = []
+          for (let i = 6; i >= 0; i--) {
+            const d = new Date(today)
+            d.setDate(today.getDate() - i)
+            days.push(d.toLocaleDateString('en-US', { weekday: 'short' }))
+          }
+          
+          const finalData = days.map(d => {
+            const existing = formattedData.find(f => f.name === d)
+            return existing || { name: d, Pain: 0, Stress: 0 }
+          })
+
+          setChartData(finalData)
+
+          const daysWithPain = finalData.filter(d => d.Pain > 0).length
+          const avgPain = daysWithPain > 0 ? finalData.reduce((acc, curr) => acc + curr.Pain, 0) / daysWithPain : 0
+          
+          const daysWithStress = finalData.filter(d => d.Stress > 0).length
+          const avgStress = daysWithStress > 0 ? finalData.reduce((acc, curr) => acc + curr.Stress, 0) / daysWithStress : 0
+
+          setWeeklyStats({
+            pain: avgPain.toFixed(1),
+            stress: avgStress.toFixed(1),
+            exercises: exData ? exData.length : 0
+          })
+
+          // Fetch Recent Activity (Limit 10 each to merge)
+          const recentPain = allPainData.slice(0, 10)
+          const recentExercises = allExerciseData.slice(0, 10)
+
+          let combinedActivity = []
+          if (recentPain) {
+            recentPain.forEach(p => combinedActivity.push({
+              date: new Date(p.created_at || p.timestamp).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+              action: `Logged Pain Level (${p.pain_level}/10)`,
+              type: 'log',
+              rawDate: new Date(p.created_at || p.timestamp).getTime()
+            }))
+          }
+          if (recentExercises) {
+            recentExercises.forEach(e => combinedActivity.push({
+              date: new Date(e.created_at || e.timestamp).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+              action: `Completed ${e.exercise_name || 'Exercise'}`,
+              type: 'exercise',
+              rawDate: new Date(e.created_at || e.timestamp).getTime()
+            }))
+          }
+          combinedActivity.sort((a, b) => b.rawDate - a.rawDate)
+          setRecentActivity(combinedActivity.slice(0, 10))
+
+          // Fetch Monthly Data (last 30 days)
+          const thirtyDaysAgo = new Date(today)
+          thirtyDaysAgo.setDate(today.getDate() - 30)
+
+          const monthPain = allPainData.filter(p => new Date(p.created_at || p.timestamp) >= thirtyDaysAgo)
+          const monthEx = allExerciseData.filter(e => new Date(e.created_at || e.timestamp) >= thirtyDaysAgo)
+
+          const weeks = [
+            { week: 'Week 1', painSum: 0, painCount: 0, sessions: 0 },
+            { week: 'Week 2', painSum: 0, painCount: 0, sessions: 0 },
+            { week: 'Week 3', painSum: 0, painCount: 0, sessions: 0 },
+            { week: 'Week 4', painSum: 0, painCount: 0, sessions: 0 }
+          ]
+
+          const getWeekIndex = (dateString) => {
+             const d = new Date(dateString)
+             const diffTime = Math.abs(today - d)
+             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+             if (diffDays <= 7) return 3
+             if (diffDays <= 14) return 2
+             if (diffDays <= 21) return 1
+             return 0
+          }
+
+          if (monthPain) {
+            monthPain.forEach(p => {
+              const idx = getWeekIndex(p.created_at || p.timestamp)
+              weeks[idx].painSum += p.pain_level
+              weeks[idx].painCount += 1
+            })
+          }
+          if (monthEx) {
+            monthEx.forEach(e => {
+              const idx = getWeekIndex(e.created_at || e.timestamp)
+              weeks[idx].sessions += 1
+            })
+          }
+          setMonthlyData(weeks.map(w => ({
+            week: w.week,
+            pain: w.painCount > 0 ? Math.round(w.painSum / w.painCount) : 0,
+            sessions: w.sessions
+          })))
+        }
+      } catch (err) {
+        console.error('Failed to load progress data', err)
       }
       setLoading(false)
     }
@@ -204,11 +280,11 @@ export default function Progress() {
           <p className="text-secondary mb-4">How you've been doing over the last 30 days.</p>
           <div style={{ width: '100%', height: '300px' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={[
-                { week: 'Week 1', pain: 5, sessions: 3 },
-                { week: 'Week 2', pain: 4, sessions: 4 },
-                { week: 'Week 3', pain: 6, sessions: 2 },
-                { week: 'Week 4', pain: 3, sessions: 5 },
+              <BarChart data={monthlyData.length > 0 ? monthlyData : [
+                { week: 'Week 1', pain: 0, sessions: 0 },
+                { week: 'Week 2', pain: 0, sessions: 0 },
+                { week: 'Week 3', pain: 0, sessions: 0 },
+                { week: 'Week 4', pain: 0, sessions: 0 },
               ]} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" />
                 <XAxis dataKey="week" stroke="var(--text-secondary)" />
@@ -227,12 +303,7 @@ export default function Progress() {
         <div className="card mt-4">
           <h3 style={{ marginBottom: '1rem' }}>Recent Activity Log</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {[
-              { date: 'Today, 9:00 AM', action: 'Completed Jaw Stretching Routine', type: 'exercise' },
-              { date: 'Yesterday, 8:30 PM', action: 'Logged Pain Level (4/10)', type: 'log' },
-              { date: 'Yesterday, 8:00 AM', action: 'Completed Posture Correction', type: 'exercise' },
-              { date: '2 days ago, 7:00 PM', action: 'Logged Stress Level (6/10)', type: 'log' },
-            ].map((item, i) => (
+            {recentActivity.length > 0 ? recentActivity.map((item, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', backgroundColor: 'var(--surface-border)', borderRadius: '8px', alignItems: 'center' }}>
                 <div>
                   <strong style={{ display: 'block', marginBottom: '0.25rem' }}>{item.action}</strong>
@@ -249,7 +320,11 @@ export default function Progress() {
                   {item.type === 'exercise' ? 'Exercise' : 'Log'}
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="text-secondary" style={{ padding: '1rem', textAlign: 'center' }}>
+                No recent activity found.
+              </div>
+            )}
           </div>
         </div>
       )}

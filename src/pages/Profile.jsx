@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+
 import { 
   Camera, Edit, Palette, Ruler, Bell, Shield, FileText, Download, 
   History, HelpCircle, MessageSquare, Stethoscope, Calendar, Settings,
@@ -49,11 +49,11 @@ const LinkRow = ({ icon: Icon, title, subtitle, color, onClick }) => (
 )
 
 export default function Profile() {
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
   const navigate = useNavigate()
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    await signOut()
     navigate('/login')
   }
 
@@ -84,7 +84,7 @@ export default function Profile() {
                 fontWeight: 'bold',
                 boxShadow: 'var(--shadow-md)'
               }}>
-                {user?.email?.charAt(0).toUpperCase() || 'U'}
+                {(user?.name || user?.user_metadata?.name || user?.email || 'U').charAt(0).toUpperCase()}
               </div>
               <div style={{
                 position: 'absolute',
@@ -100,7 +100,7 @@ export default function Profile() {
               </div>
             </div>
 
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>{user?.user_metadata?.name || 'User Name'}</h2>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>{user?.name || user?.user_metadata?.name || 'User Name'}</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>{user?.email}</p>
 
             <button className="btn btn-primary" style={{ width: '100%' }}>
@@ -115,7 +115,7 @@ export default function Profile() {
           </div>
 
           <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 500 }}>
-            TMD Care Platform v2.4.1 (Clinical Release)
+            TMD Self-Care Platform v2.4.1 (Clinical Release)
           </div>
 
         </div>
@@ -135,15 +135,12 @@ export default function Profile() {
             <SectionHeader title="CLINICAL REPORTS" />
             <div style={{ borderRadius: '8px', border: '1px solid var(--surface-border)', overflow: 'hidden' }}>
               <LinkRow icon={FileText} title="View Health Reports" onClick={() => navigate('/reports')} />
-              <LinkRow icon={History} title="Clinical History" onClick={() => navigate('/reports/history')} />
             </div>
           </div>
 
           <div className="card" style={{ padding: '1.5rem' }}>
             <SectionHeader title="SUPPORT & RESOURCES" />
             <div style={{ borderRadius: '8px', border: '1px solid var(--surface-border)', overflow: 'hidden' }}>
-              <LinkRow icon={Stethoscope} title="Find a Specialist" subtitle="Locate TMD specialists near you" onClick={() => navigate('/support')} />
-              <LinkRow icon={Calendar} title="My Appointments" onClick={() => navigate('/support')} />
               <LinkRow icon={HelpCircle} title="Help Center & FAQs" onClick={() => navigate('/support')} />
             </div>
           </div>

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Send, ShieldAlert, CheckCircle, Info, AlertTriangle, Lightbulb } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { api } from '../lib/api'
 
 export default function AiChat() {
   const navigate = useNavigate()
@@ -108,14 +108,12 @@ export default function AiChat() {
     try {
       const history = newMessages.map(m => ({ role: m.role, content: m.content }))
       
-      const { data, error } = await supabase.functions.invoke('chat', {
-        body: { messages: history }
-      })
+      const result = await api.post('/chat', { messages: history })
+      
+      if (!result) throw new Error("No response from server")
+      if (result.error) throw new Error(result.error)
 
-      if (error) throw error
-      if (data?.error) throw new Error(data.error)
-
-      const botReply = data?.choices?.[0]?.message?.content || "Sorry, I couldn't process that."
+      const botReply = result.choices?.[0]?.message?.content || result.reply || "Sorry, I couldn't process that."
       setMessages([...newMessages, { role: 'assistant', content: botReply, timestamp: Date.now() }])
       
     } catch (error) {
@@ -135,7 +133,7 @@ export default function AiChat() {
       <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--surface-border)', display: 'flex', alignItems: 'center', backgroundColor: 'var(--bg-secondary)' }}>
         <h1 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <ShieldAlert size={24} color="var(--brand-primary)" />
-          TMD Care Clinical Assistant
+          TMD Self-Care Clinical Assistant
         </h1>
       </div>
 

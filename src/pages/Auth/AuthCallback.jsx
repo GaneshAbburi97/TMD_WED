@@ -1,71 +1,16 @@
-import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 
 export default function AuthCallback() {
   const navigate = useNavigate()
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    // With implicit flow, Supabase puts the access_token in the URL hash.
-    // The Supabase client detects it automatically via detectSessionInUrl.
-    // We just listen for the SIGNED_IN event and redirect.
-
-    // Check for errors passed as query params
-    const searchParams = new URLSearchParams(window.location.search)
-    const hashParams = new URLSearchParams(window.location.hash.substring(1))
-
-    const errorDesc =
-      searchParams.get('error_description') ||
-      searchParams.get('error') ||
-      hashParams.get('error_description') ||
-      hashParams.get('error')
-
-    if (errorDesc) {
-      setError(decodeURIComponent(errorDesc.replace(/\+/g, ' ')))
-      return
-    }
-
-    // Determine intended flow (signin vs signup) from localStorage or query param
-    let mode = null
-    try {
-      mode = window.localStorage.getItem('oauth_mode') || null
-      // remove it so future callbacks don't reuse it
-      window.localStorage.removeItem('oauth_mode')
-    } catch (e) {}
-    if (!mode) mode = searchParams.get('mode') || null
-
-    // Listen for the auth state change (Supabase processes the hash automatically)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
-        // Route based on mode: signup -> profile, signin -> dashboard, default -> dashboard
-        if (mode === 'signup') {
-          navigate('/profile', { replace: true })
-        } else {
-          navigate('/dashboard', { replace: true })
-        }
-      }
-    })
-
-    // Also handle if session is already available (hash was processed fast)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        if (mode === 'signup') {
-          navigate('/profile', { replace: true })
-        } else {
-          navigate('/dashboard', { replace: true })
-        }
-      }
-    })
-
-    // Fallback: if no event fires in 5s, something went wrong
-    const timeout = setTimeout(() => {
-      setError('Authentication timed out. Please try again.')
-    }, 5000)
-
-    return () => {
-      subscription.unsubscribe()
-      clearTimeout(timeout)
+    // Check if token exists
+    const token = localStorage.getItem('tmd_token')
+    if (token) {
+      navigate('/dashboard', { replace: true })
+    } else {
+      setError('Authentication failed or timed out.')
     }
   }, [navigate])
 
